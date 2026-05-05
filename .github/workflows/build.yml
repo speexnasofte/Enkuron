@@ -13,17 +13,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip project
-        run: unzip enkuron_v2_fixed.zip && mv enkuron_v2_patched/* . && rm -rf enkuron_v2_patched enkuron_v2_fixed.zip
+      - name: Unzip and prepare project
+        run: |
+          unzip enkuron_v2_fixed.zip
+          cp -r enkuron_v2_patched/. .
+          rm -rf enkuron_v2_patched enkuron_v2_fixed.zip
+          chmod +x gradlew
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
 
       - name: Build with Gradle
         run: ./gradlew build --no-daemon
