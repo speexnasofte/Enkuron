@@ -15,9 +15,9 @@ jobs:
 
       - name: Unzip and prepare project
         run: |
-          unzip enkuron_v2_fixed.zip
-          cp -r enkuron_v2_patched/. .
-          rm -rf enkuron_v2_patched enkuron_v2_fixed.zip
+          unzip enkuron_patched.zip
+          cp -r enkuron_patched/. .
+          rm -rf enkuron_patched enkuron_patched.zip
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
