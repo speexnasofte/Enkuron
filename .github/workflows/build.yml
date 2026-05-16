@@ -15,7 +15,7 @@ jobs:
 
       - name: Unzip and prepare project
         run: |
-          unzip pvpbot-v1_2_2-lunar-gui.zip
+          unzip pvpbot-v1.2.2-fixed.zip
           cp -r pvpbot-v1.2/. .
           rm -rf pvpbot-v1.2 pvpbot-v1.2.2-lunar-gui.zip
 
