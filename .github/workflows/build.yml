@@ -1,9 +1,14 @@
-name: Build Enkuron Mod
+name: Build Mod
 
 on:
   push:
     branches: [ "**" ]
   workflow_dispatch:
+    inputs:
+      zip_file:
+        description: 'ZIP archive name (leave empty to auto-detect)'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -15,9 +20,34 @@ jobs:
 
       - name: Unzip and prepare project
         run: |
-          unzip pvpbot-v1_2_2-lunar-gui.zip
-          cp -r pvpbot-v1.2/. .
-          rm -rf pvpbot-v1.2 pvpbot-v1_2_2-lunar-gui.zip
+          # Auto-detect zip or use manually specified name
+          if [ -n "${{ github.event.inputs.zip_file }}" ]; then
+            ZIP_FILE="${{ github.event.inputs.zip_file }}"
+          else
+            ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
+          fi
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "❌ No ZIP archive found in repository root!"
+            exit 1
+          fi
+
+          echo "📦 Found archive: $ZIP_FILE"
+          unzip "$ZIP_FILE"
+
+          # Auto-detect extracted folder (first new directory)
+          EXTRACTED_DIR=$(unzip -Z1 "$ZIP_FILE" | head -n 1 | cut -d'/' -f1)
+
+          if [ -z "$EXTRACTED_DIR" ] || [ ! -d "$EXTRACTED_DIR" ]; then
+            echo "❌ Could not determine extracted folder!"
+            exit 1
+          fi
+
+          echo "📁 Extracted folder: $EXTRACTED_DIR"
+
+          # Copy contents to root, remove leftovers
+          cp -r "$EXTRACTED_DIR/." .
+          rm -rf "$EXTRACTED_DIR" "$ZIP_FILE"
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
@@ -34,6 +64,6 @@ jobs:
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: enkuron-mod
+          name: mod-build
           path: build/libs/*.jar
           if-no-files-found: error
