@@ -14,13 +14,10 @@ jobs:
       matrix:
         include:
           - version: "1.21.1"
-            zip: "pvpbot-1.21.1.zip"
             java: "21"
           - version: "1.21.11"
-            zip: "pvpbot-1.21.11.zip"
             java: "21"
           - version: "26.1.2"
-            zip: "pvpbot-26.1.2.zip"
             java: "25"
 
     name: Build (${{ matrix.version }})
@@ -31,31 +28,37 @@ jobs:
 
       - name: Unzip and prepare project
         run: |
-          ZIP_FILE="${{ matrix.zip }}"
+          VERSION="${{ matrix.version }}"
 
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "❌ Archive not found: $ZIP_FILE"
+          # Search for any zip containing the version string (dots or underscores)
+          VERSION_PATTERN="${VERSION//./_}"
+          ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | grep -E "${VERSION//./\\.}|${VERSION_PATTERN}" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "❌ No archive found matching version: $VERSION"
+            echo "Available zips:"
+            ls *.zip 2>/dev/null || echo "(none)"
             exit 1
           fi
 
-          echo "📦 Extracting: $ZIP_FILE"
-          mkdir -p build_${{ matrix.version }}
-          unzip -o -q "$ZIP_FILE" -d build_${{ matrix.version }}
+          echo "📦 Found archive: $ZIP_FILE"
+          mkdir -p build_$VERSION
+          unzip -o -q "$ZIP_FILE" -d build_$VERSION
 
           # If extracted into a subfolder — move contents up
-          DIRS=$(find build_${{ matrix.version }} -maxdepth 1 -mindepth 1 -type d)
+          DIRS=$(find build_$VERSION -maxdepth 1 -mindepth 1 -type d)
           DIR_COUNT=$(echo "$DIRS" | grep -c .)
-          if [ "$DIR_COUNT" -eq 1 ] && [ ! -f "build_${{ matrix.version }}/settings.gradle" ]; then
+          if [ "$DIR_COUNT" -eq 1 ] && [ ! -f "build_$VERSION/settings.gradle" ]; then
             SUBDIR=$(echo "$DIRS" | head -n 1)
             echo "📁 Moving contents from $SUBDIR"
-            cp -rn "$SUBDIR/." build_${{ matrix.version }}/
+            cp -rn "$SUBDIR/." build_$VERSION/
             rm -rf "$SUBDIR"
           fi
 
           echo "📂 Project contents:"
-          ls -la build_${{ matrix.version }}/
+          ls -la build_$VERSION/
 
-          if [ ! -f "build_${{ matrix.version }}/settings.gradle" ] && [ ! -f "build_${{ matrix.version }}/settings.gradle.kts" ]; then
+          if [ ! -f "build_$VERSION/settings.gradle" ] && [ ! -f "build_$VERSION/settings.gradle.kts" ]; then
             echo "❌ settings.gradle not found!"
             exit 1
           fi
