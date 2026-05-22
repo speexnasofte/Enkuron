@@ -8,19 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - version: "1.21.1"
-            java: "21"
-          - version: "1.21.11"
-            java: "21"
-          - version: "26.1.2"
-            java: "25"
-
-    name: Build (${{ matrix.version }})
+    name: Build
 
     steps:
       - name: Checkout repository
@@ -28,57 +16,53 @@ jobs:
 
       - name: Unzip and prepare project
         run: |
-          VERSION="${{ matrix.version }}"
-
-          # Take any zip archive available anywhere in the repo
           ZIP_FILE=$(find . -name "*.zip" | head -n 1)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "❌ No zip archive found in repository"
-            echo "Available files:"
+            echo "❌ No zip archive found"
             find . -maxdepth 2 -type f | head -30
             exit 1
           fi
 
           echo "📦 Found archive: $ZIP_FILE"
-          mkdir -p build_$VERSION
-          unzip -o -q "$ZIP_FILE" -d build_$VERSION
+          mkdir -p build_mod
+          unzip -o -q "$ZIP_FILE" -d build_mod
 
           # If extracted into a subfolder — move contents up
-          DIRS=$(find build_$VERSION -maxdepth 1 -mindepth 1 -type d)
+          DIRS=$(find build_mod -maxdepth 1 -mindepth 1 -type d)
           DIR_COUNT=$(echo "$DIRS" | grep -c .)
-          if [ "$DIR_COUNT" -eq 1 ] && [ ! -f "build_$VERSION/settings.gradle" ]; then
+          if [ "$DIR_COUNT" -eq 1 ] && [ ! -f "build_mod/settings.gradle" ]; then
             SUBDIR=$(echo "$DIRS" | head -n 1)
             echo "📁 Moving contents from $SUBDIR"
-            cp -rn "$SUBDIR/." build_$VERSION/
+            cp -rn "$SUBDIR/." build_mod/
             rm -rf "$SUBDIR"
           fi
 
           echo "📂 Project contents:"
-          ls -la build_$VERSION/
+          ls -la build_mod/
 
-          if [ ! -f "build_$VERSION/settings.gradle" ] && [ ! -f "build_$VERSION/settings.gradle.kts" ]; then
+          if [ ! -f "build_mod/settings.gradle" ] && [ ! -f "build_mod/settings.gradle.kts" ]; then
             echo "❌ settings.gradle not found!"
             exit 1
           fi
           echo "✅ Ready"
 
-      - name: Set up Java ${{ matrix.java }}
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ matrix.java }}
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build with Gradle
-        working-directory: build_${{ matrix.version }}
+        working-directory: build_mod
         run: gradle build --no-daemon
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mod-${{ matrix.version }}
-          path: build_${{ matrix.version }}/build/libs/*.jar
+          name: mod-build
+          path: build_mod/build/libs/*.jar
           if-no-files-found: error
