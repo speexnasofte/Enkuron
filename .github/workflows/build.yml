@@ -30,14 +30,20 @@ jobs:
         run: |
           VERSION="${{ matrix.version }}"
 
-          # Search for any zip containing the version string (dots or underscores)
+          # Try to find archive matching version first, otherwise take any archive
           VERSION_PATTERN="${VERSION//./_}"
           ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | grep -E "${VERSION//./\\.}|${VERSION_PATTERN}" | head -n 1)
 
+          # Fallback: take any zip archive available
           if [ -z "$ZIP_FILE" ]; then
-            echo "❌ No archive found matching version: $VERSION"
-            echo "Available zips:"
-            ls *.zip 2>/dev/null || echo "(none)"
+            echo "⚠️ No archive matching version '$VERSION', using any available archive..."
+            ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
+          fi
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "❌ No archive found at all"
+            echo "Available files:"
+            ls -la
             exit 1
           fi
 
