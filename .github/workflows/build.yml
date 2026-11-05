@@ -16,36 +16,33 @@ jobs:
 
       - name: Unzip and prepare project
         run: |
-          ZIP_FILE=$(find . -name "*.zip" | head -n 1)
+          ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | sort -V | tail -n 1)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "❌ No zip archive found"
+            echo "No zip archive found"
             find . -maxdepth 2 -type f | head -30
             exit 1
           fi
 
-          echo "📦 Found archive: $ZIP_FILE"
+          echo "Found archive: $ZIP_FILE"
           mkdir -p build_mod
           unzip -o -q "$ZIP_FILE" -d build_mod
 
-          # If extracted into a subfolder — move contents up
           DIRS=$(find build_mod -maxdepth 1 -mindepth 1 -type d)
           DIR_COUNT=$(echo "$DIRS" | grep -c .)
           if [ "$DIR_COUNT" -eq 1 ] && [ ! -f "build_mod/settings.gradle" ]; then
             SUBDIR=$(echo "$DIRS" | head -n 1)
-            echo "📁 Moving contents from $SUBDIR"
+            echo "Moving contents from $SUBDIR"
             cp -rn "$SUBDIR/." build_mod/
             rm -rf "$SUBDIR"
           fi
 
-          echo "📂 Project contents:"
           ls -la build_mod/
 
           if [ ! -f "build_mod/settings.gradle" ] && [ ! -f "build_mod/settings.gradle.kts" ]; then
-            echo "❌ settings.gradle not found!"
+            echo "settings.gradle not found!"
             exit 1
           fi
-          echo "✅ Ready"
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -55,14 +52,43 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.2.0
 
       - name: Build with Gradle
+        id: build
         working-directory: build_mod
-        run: gradle build --no-daemon
+        run: |
+          set -o pipefail
+          gradle build --no-daemon --stacktrace --console=plain 2>&1 | tee build.log
+
+      - name: Errors into the run summary
+        if: always()
+        working-directory: build_mod
+        run: |
+          {
+            echo "### Build: ${{ steps.build.outcome }}"
+            echo '```'
+            grep -E "error:|What went wrong|Could not|FAILED|Cannot remap|BUILD " build.log | head -120 || true
+            echo '--- last 40 lines ---'
+            tail -n 40 build.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build_mod/build.log
 
       - name: Upload JAR artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: mod-build
-          path: build_mod/build/libs/*.jar
+          path: |
+            build_mod/build/libs/*.jar
+            !build_mod/build/libs/*-sources.jar
+            !build_mod/build/libs/*-dev.jar
           if-no-files-found: error
